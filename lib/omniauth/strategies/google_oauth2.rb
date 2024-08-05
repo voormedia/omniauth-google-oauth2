@@ -15,7 +15,7 @@ module OmniAuth
       DEFAULT_SCOPE = 'email,profile'
       USER_INFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
       IMAGE_SIZE_REGEXP = /(s\d+(-c)?)|(w\d+-h\d+(-c)?)|(w\d+(-c)?)|(h\d+(-c)?)|c/
-      AUTHORIZE_OPTIONS = %i[access_type hd login_hint prompt request_visible_actions scope state redirect_uri include_granted_scopes enable_granular_consent openid_realm device_id device_name]
+      AUTHORIZE_OPTIONS = %i[access_type hd login_hint prompt request_visible_actions scope state redirect_uri include_granted_scopes enable_granular_consent openid_realm device_id device_name emails]
 
       option :name, 'google_oauth2'
       option :skip_friends, true
@@ -249,10 +249,19 @@ module OmniAuth
 
         @raw_info ||= access_token.get(USER_INFO_URL).parsed
 
-        options.hd = options.hd.call if options.hd.is_a? Proc
-        allowed_hosted_domains = Array(options.hd)
 
-        raise CallbackError.new(:invalid_hd, 'Invalid Hosted Domain') unless allowed_hosted_domains.include?(@raw_info['hd']) || options.hd == '*'
+        options.hd = options.hd.call if options.hd.is_a? Proc
+        optins.email = options.emails.call if options.emails.is_a? Proc
+        allowed_hosted_domains = Array(options.hd)
+        allowed_hosted_emails = Array(options.email)
+        error_message = "Invalid Hosted Domain. " \
+                    "Allowed Emails: #{allowed_hosted_emails}, " \
+                    "Options Email: #{options.email}, " \
+                    "Raw Info Email: #{@raw_info['email']}, " \
+                    "Raw Info HD: #{@raw_info['hd']}"
+
+
+        raise CallbackError.new(:invalid_hd, error_message) unless allowed_hosted_domains.include?(@raw_info['hd']) || allowed_hosted_domains.include?(@raw_info['email']) || options.hd == '*'
 
         true
       end
