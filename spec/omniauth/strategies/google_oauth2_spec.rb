@@ -820,14 +820,15 @@ describe OmniAuth::Strategies::GoogleOauth2 do
     end
   end
 
-  describe 'verify_hd' do
+  describe 'verify_user' do
     let(:client) do
       OAuth2::Client.new('abc', 'def') do |builder|
         builder.request :url_encoded
         builder.adapter :test do |stub|
           stub.get('/oauth2/v3/userinfo') do
             [200, { 'Content-Type' => 'application/json; charset=UTF-8' }, JSON.dump(
-              hd: 'example.com'
+              hd: 'example.com',
+              email: 'user@example.com'
             )]
           end
         end
@@ -841,65 +842,67 @@ describe OmniAuth::Strategies::GoogleOauth2 do
           builder.request :url_encoded
           builder.adapter :test do |stub|
             stub.get('/oauth2/v3/userinfo') do
-              [200, { 'Content-Type' => 'application/json; charset=UTF-8' }, JSON.dump({})]
+              [200, { 'Content-Type' => 'application/json; charset=UTF-8' }, JSON.dump(
+                email: 'user@example.com'
+              )]
             end
           end
         end
       end
 
-      it 'should verify hd if options hd is set and correct' do
-        subject.options.hd = nil
-        expect(subject.send(:verify_hd, access_token)).to eq(true)
+      it 'should verify external email if options external_emails is set and correct' do
+        subject.options.external_emails = ['user@example.com', 'another@example.com']
+        expect(subject.send(:verify_user, access_token)).to eq(true)
       end
 
-      it 'should verify hd if options hd is set as an array and is correct' do
-        subject.options.hd = ['example.com', 'example.co', nil]
-        expect(subject.send(:verify_hd, access_token)).to eq(true)
+      it 'should verify external email if options external_emails is set as a Proc and correct' do
+        subject.options.external_emails = proc { ['user@example.com', 'another@example.com'] }
+        expect(subject.send(:verify_user, access_token)).to eq(true)
       end
 
-      it 'should raise an exception if nil is not included' do
-        subject.options.hd = ['example.com', 'example.co']
+      it 'should raise an exception if email is not included in external_emails' do
+        subject.options.external_emails = ['another@example.com']
         expect do
-          subject.send(:verify_hd, access_token)
+          subject.send(:verify_user, access_token)
         end.to raise_error(OmniAuth::Strategies::OAuth2::CallbackError)
       end
     end
 
     it 'should verify hd if options hd is not set' do
-      expect(subject.send(:verify_hd, access_token)).to eq(true)
+      expect(subject.send(:verify_user, access_token)).to eq(true)
     end
 
     it 'should verify hd if options hd is set and correct' do
       subject.options.hd = 'example.com'
-      expect(subject.send(:verify_hd, access_token)).to eq(true)
+      expect(subject.send(:verify_user, access_token)).to eq(true)
     end
 
     it 'should verify hd if options hd is set as an array and is correct' do
       subject.options.hd = ['example.com', 'example.co', nil]
-      expect(subject.send(:verify_hd, access_token)).to eq(true)
+      expect(subject.send(:verify_user, access_token)).to eq(true)
     end
 
-    it 'should verify hd if options hd is set as an Proc and is correct' do
+    it 'should verify hd if options hd is set as a Proc and is correct' do
       subject.options.hd = proc { 'example.com' }
-      expect(subject.send(:verify_hd, access_token)).to eq(true)
+      expect(subject.send(:verify_user, access_token)).to eq(true)
     end
 
-    it 'should verify hd if options hd is set as an Proc returning an array and is correct' do
+    it 'should verify hd if options hd is set as a Proc returning an array and is correct' do
       subject.options.hd = proc { ['example.com', 'example.co'] }
-      expect(subject.send(:verify_hd, access_token)).to eq(true)
+      expect(subject.send(:verify_user, access_token)).to eq(true)
     end
 
     it 'should raise error if options hd is set and wrong' do
       subject.options.hd = 'invalid.com'
       expect do
-        subject.send(:verify_hd, access_token)
+        subject.send(:verify_user, access_token)
       end.to raise_error(OmniAuth::Strategies::GoogleOauth2::CallbackError)
     end
 
     it 'should raise error if options hd is set as an array and is not correct' do
       subject.options.hd = ['invalid.com', 'invalid.co']
       expect do
-        subject.send(:verify_hd, access_token)
+        subject.send(:verify_user, access_token)
       end.to raise_error(OmniAuth::Strategies::GoogleOauth2::CallbackError)
     end
   end

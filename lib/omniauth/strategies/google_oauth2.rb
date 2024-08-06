@@ -15,7 +15,7 @@ module OmniAuth
       DEFAULT_SCOPE = 'email,profile'
       USER_INFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
       IMAGE_SIZE_REGEXP = /(s\d+(-c)?)|(w\d+-h\d+(-c)?)|(w\d+(-c)?)|(h\d+(-c)?)|c/
-      AUTHORIZE_OPTIONS = %i[access_type hd login_hint prompt request_visible_actions scope state redirect_uri include_granted_scopes enable_granular_consent openid_realm device_id device_name emails]
+      AUTHORIZE_OPTIONS = %i[access_type hd login_hint prompt request_visible_actions scope state redirect_uri include_granted_scopes enable_granular_consent openid_realm device_id device_name external_emails]
 
       option :name, 'google_oauth2'
       option :skip_friends, true
@@ -101,7 +101,7 @@ module OmniAuth
       def custom_build_access_token
         access_token = get_access_token(request)
 
-        verify_hd(access_token)
+        verify_user(access_token)
         access_token
       end
 
@@ -244,26 +244,28 @@ module OmniAuth
         token_info['aud'] == options.client_id || options.authorized_client_ids.include?(token_info['aud'])
       end
 
-      def verify_hd(access_token)
-        return true unless options.hd
+      def verify_user(access_token)
+        return true unless options.hd || options.external_emails
 
         @raw_info ||= access_token.get(USER_INFO_URL).parsed
+        valid_hd = verify_hd
+        allowed_email = verify_external_email unless valid_hd
 
-
-        options.hd = options.hd.call if options.hd.is_a? Proc
-        optins.email = options.emails.call if options.emails.is_a? Proc
-        allowed_hosted_domains = Array(options.hd)
-        allowed_hosted_emails = Array(options.email)
-        error_message = "Invalid Hosted Domain. " \
-                    "Allowed Emails: #{allowed_hosted_emails}, " \
-                    "Options Email: #{options.email}, " \
-                    "Raw Info Email: #{@raw_info['email']}, " \
-                    "Raw Info HD: #{@raw_info['hd']}"
-
-
-        raise CallbackError.new(:invalid_hd, error_message) unless allowed_hosted_domains.include?(@raw_info['hd']) || allowed_hosted_domains.include?(@raw_info['email']) || options.hd == '*'
+        raise CallbackError.new(:invalid_hd, 'Invalid Hosted Domain') unless options.hd == '*' || valid_hd || allowed_email
 
         true
+      end
+
+      def verify_hd
+        options.hd = options.hd.call if options.hd.is_a? Proc
+        allowed_hosted_domains = Array(options.hd)
+        allowed_hosted_domains.include?(@raw_info['hd'])
+      end
+
+      def verify_external_email
+        options.external_emails = options.external_emails.call if options.external_emails.is_a? Proc
+        allowed_emails = Array(options.external_emails)
+        allowed_emails.include?(@raw_info['email'])
       end
     end
   end
