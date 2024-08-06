@@ -265,7 +265,6 @@ module OmniAuth
       def verify_external_email
         options.external_emails = options.external_emails.call if options.external_emails.is_a? Proc
         allowed_emails = Array(options.external_emails)
-
         allowed_emails.include?(@raw_info['email'])
       end
     end
